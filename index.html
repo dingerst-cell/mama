@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weihnachten</title>
+<style>
+  :root { --bg:#0e2a1f; --card:#7a1620; --text:#fff8ec; --muted:#f3d9b0; --accent:#e9c46a; }
+  body { background: radial-gradient(circle at 70% 0%, #1d4a36 0%, #0e2a1f 60%, #08190f 100%) !important; }
+  .photo { border:5px solid var(--accent); box-shadow:0 0 0 3px #7a1620, 0 0 22px rgba(233,196,106,.45); position:relative; z-index:1; }
+  .top, .msg { position:relative; z-index:1; }
+  .photo.advent { background:rgba(0,0,0,.25); display:flex; flex-direction:column; justify-content:space-between; padding:12px 14px; text-align:center; }
+  .atitle { font-size:min(5.2vh,3.4vw); font-weight:600; color:var(--accent); }
+  .wreath { width:100%; flex:1; min-height:0; }
+  .tip { font-size:min(4.2vh,2.8vw); color:var(--muted); line-height:1.25; }
+  .tip span { display:block; font-size:.85em; opacity:.8; }
+  .tip b { color:var(--text); font-weight:600; }
+  .flame { transform-box:fill-box; transform-origin:50% 100%; animation:flick 1.6s ease-in-out infinite alternate; }
+  @keyframes flick { from { transform:scale(1,1); } to { transform:scale(.9,1.12); } }
+  .top { box-shadow: inset 0 0 0 2px rgba(233,196,106,.5); }
+  .garland { font-size:min(4.6vh,3vw); letter-spacing:.15em; line-height:1; margin-bottom:4px; }
+  .xmas { font-size:min(4.8vh,3.1vw); color:var(--accent); font-weight:600; margin-top:4px; }
+  .snow { position:fixed; inset:0; pointer-events:none; z-index:2; overflow:hidden; }
+  .flake { position:absolute; top:-5vh; color:#fff; opacity:.85; animation:fall linear infinite; }
+  @keyframes fall { to { transform: translate(3vw, 110vh); } }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; background:var(--bg); color:var(--text);
+    font-family: "Segoe UI", Roboto, Arial, sans-serif; overflow:hidden; }
+  .wrap { display:grid; grid-template-columns: 46% 54%; grid-template-rows: 1fr auto; height:100vh; gap:10px; padding:10px; }
+  .photo { grid-row:1 / 3; border-radius:18px; background:#222 center/cover no-repeat; }
+  .top { background:var(--card); border-radius:18px; padding:14px 18px; display:flex; flex-direction:column; justify-content:space-between; }
+  .clock { font-size:min(15vh, 9vw); font-weight:600; line-height:1; }
+  .date { font-size:min(5vh, 3.2vw); color:var(--muted); margin-top:4px; }
+  .weather { display:flex; align-items:center; gap:14px; margin-top:8px; }
+  .icon { font-size:min(13vh, 8vw); line-height:1; }
+  .temp { font-size:min(12vh, 7vw); font-weight:600; line-height:1; }
+  .desc { font-size:min(4.6vh, 3vw); color:var(--muted); }
+  .days { display:flex; gap:8px; margin-top:8px; font-size:min(4.2vh, 2.8vw); color:var(--muted); }
+  .days div { flex:1; background:rgba(0,0,0,.22); border-radius:10px; padding:5px 8px; text-align:center; }
+  .days b { color:var(--text); display:block; font-weight:600; }
+  .msg { background:var(--accent); color:#1a1a1a; border-radius:18px; padding:12px 18px;
+    font-size:min(6.4vh, 4vw); font-weight:600; line-height:1.2; min-height:18vh; display:flex; align-items:center; }
+  .msg small { display:block; font-size:.55em; font-weight:500; opacity:.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="photo advent">
+    <div class="atitle" id="atitle">Adventskranz</div>
+    <svg viewBox="0 0 400 260" class="wreath" id="wreath"></svg>
+    <div class="tip"><span>Heute vorschlagen:</span><b id="tip">„Alexa, spiel Weihnachtslieder“</b></div>
+  </div>
+
+  <div class="top">
+    <div>
+      <div class="garland">🎄 ⭐ 🎁 ❄️ 🕯️</div>
+      <div class="clock" id="clock">--:--</div>
+      <div class="date" id="date"></div>
+      <div class="xmas" id="xmas"></div>
+    </div>
+    <div>
+      <div class="weather">
+        <div class="icon" id="icon">⛅</div>
+        <div>
+          <div class="temp" id="temp">--°</div>
+          <div class="desc" id="desc">Wetter lädt …</div>
+        </div>
+      </div>
+      <div class="days" id="days"></div>
+    </div>
+  </div>
+
+  <div class="msg" id="msg"><div id="msgtext">Hallo Mama ❤️</div></div>
+</div>
+<div class="snow" id="snow"></div>
+
+<script>
+// ===== Einstellungen =====
+const LAT = 53.35, LON = 13.24;       // Ortsmitte, nur für Wetter
+const MESSAGE_FILE = "nachricht.txt";  // Nachricht: nur diese Textdatei ändern
+// =========================
+
+const WMO = {0:["☀️","Klar"],1:["🌤️","Überwiegend klar"],2:["⛅","Wolkig"],3:["☁️","Bedeckt"],
+45:["🌫️","Nebel"],48:["🌫️","Reifnebel"],51:["🌦️","Leichter Nieselregen"],53:["🌦️","Nieselregen"],55:["🌧️","Starker Nieselregen"],
+56:["🌧️","Gefrierender Nieselregen"],57:["🌧️","Gefrierender Nieselregen"],61:["🌧️","Leichter Regen"],63:["🌧️","Regen"],65:["🌧️","Starker Regen"],
+66:["🌧️","Eisregen"],67:["🌧️","Eisregen"],71:["🌨️","Leichter Schneefall"],73:["🌨️","Schneefall"],75:["❄️","Starker Schneefall"],
+77:["❄️","Schneegriesel"],80:["🌦️","Schauer"],81:["🌧️","Regenschauer"],82:["⛈️","Starke Schauer"],85:["🌨️","Schneeschauer"],
+86:["🌨️","Starke Schneeschauer"],95:["⛈️","Gewitter"],96:["⛈️","Gewitter mit Hagel"],99:["⛈️","Gewitter mit Hagel"]};
+
+function tick(){
+  const n = new Date();
+  document.getElementById("clock").textContent =
+    n.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  document.getElementById("date").textContent =
+    n.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"});
+  document.getElementById("xmas").textContent = xmasLine(n);
+}
+
+function xmasLine(n){
+  const y = n.getFullYear(), m = n.getMonth(), d = n.getDate();
+  if (m === 11 && d >= 24 && d <= 26) return "🎄 Frohe Weihnachten! 🎄";
+  if (m === 11 && d > 26) return "🎆 Guten Rutsch ins neue Jahr!";
+  if (m === 0 && d <= 6) return "🎆 Frohes neues Jahr!";
+  const today = new Date(y, m, d);
+  const eve = new Date(y, 11, 24);
+  const days = Math.round((eve - today) / 86400000);
+  return days === 1 ? "Morgen ist Heiligabend ✨" : `Noch ${days} Tage bis Heiligabend ✨`;
+}
+
+function snow(){
+  const box = document.getElementById("snow"), chars = ["❄","❅","❆","•"];
+  for (let i = 0; i < 28; i++){
+    const f = document.createElement("span");
+    f.className = "flake";
+    f.textContent = chars[i % chars.length];
+    f.style.left = Math.random()*100 + "vw";
+    f.style.fontSize = (1 + Math.random()*1.8) + "vh";
+    f.style.animationDuration = (9 + Math.random()*10) + "s";
+    f.style.animationDelay = (-Math.random()*18) + "s";
+    box.appendChild(f);
+  }
+}
+snow();
+
+async function weather(){
+  try{
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`+
+      `&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max`+
+      `&timezone=Europe%2FBerlin&forecast_days=3`;
+    const r = await fetch(u); const d = await r.json();
+    const w = WMO[d.current.weather_code] || ["🌡️",""];
+    document.getElementById("icon").textContent = w[0];
+    document.getElementById("temp").textContent = Math.round(d.current.temperature_2m) + "°";
+    document.getElementById("desc").textContent = w[1];
+    const box = document.getElementById("days"); box.innerHTML = "";
+    d.daily.time.forEach((t,i)=>{
+      const name = i===0 ? "Heute" : new Date(t).toLocaleDateString("de-DE",{weekday:"short"});
+      const ic = (WMO[d.daily.weather_code[i]]||["",""])[0];
+      const el = document.createElement("div");
+      el.innerHTML = `<b>${name} ${ic}</b>${Math.round(d.daily.temperature_2m_min[i])}° / ${Math.round(d.daily.temperature_2m_max[i])}°`+
+                     ` · ${d.daily.precipitation_probability_max[i]}%`;
+      box.appendChild(el);
+    });
+  }catch(e){ document.getElementById("desc").textContent = "Kein Wetter (Internet?)"; }
+}
+
+async function message(){
+  try{
+    const r = await fetch(MESSAGE_FILE + "?t=" + Date.now(), {cache:"no-store"});
+    if(r.ok){ const t = (await r.text()).trim(); if(t) document.getElementById("msgtext").textContent = t; }
+  }catch(e){}
+}
+
+// Adventssonntage: 4. Advent = letzter Sonntag vor dem 25.12.
+function adventCount(n){
+  const y = n.getFullYear();
+  const xmas = new Date(y, 11, 25);
+  const fourth = new Date(y, 11, 25 - (xmas.getDay() || 7));
+  const today = new Date(y, n.getMonth(), n.getDate());
+  let c = 0;
+  for (let k = 0; k < 4; k++){
+    const s = new Date(fourth); s.setDate(fourth.getDate() - 7*(3-k));
+    if (today >= s) c++;
+  }
+  if (n.getMonth() === 0 && n.getDate() <= 6) c = 4;
+  return c;
+}
+
+const TIPS = ["„Alexa, spiel Weihnachtslieder“","„Alexa, spiel Stille Nacht“","„Alexa, spiel Rolf Zuckowski Weihnachten“",
+  "„Alexa, spiel Last Christmas“","„Alexa, spiel Weihnachtsklassik“","„Alexa, spiel Bing Crosby White Christmas“",
+  "„Alexa, spiel O Tannenbaum“","„Alexa, spiel Helene Fischer Weihnachten“","„Alexa, spiel Kaminfeuer-Geräusche“",
+  "„Alexa, spiel Thomanerchor Weihnachten“","„Alexa, spiel Jingle Bells“","„Alexa, spiel Weihnachts-Jazz“"];
+
+function wreath(){
+  const n = new Date(), lit = adventCount(n);
+  const xs = [95, 165, 235, 305], cols = ["#b3202e","#b3202e","#b3202e","#b3202e"];
+  let s = `<ellipse cx="200" cy="215" rx="185" ry="38" fill="#1f5a3a"/>`;
+  for (let i = 0; i < 26; i++){
+    const a = i/26*Math.PI*2, x = 200 + Math.cos(a)*170, y = 215 + Math.sin(a)*32;
+    s += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="16" fill="${i%2?'#2d7a4f':'#246b43'}"/>`;
+  }
+  [[60,218],[150,240],[250,240],[340,218],[200,192]].forEach(([x,y])=> s += `<circle cx="${x}" cy="${y}" r="7" fill="#d62f3c"/>`);
+  xs.forEach((x,i)=>{
+    const h = 95, top = 205 - h;
+    s += `<rect x="${x-17}" y="${top}" width="34" height="${h}" rx="5" fill="${cols[i]}"/>`;
+    s += `<rect x="${x-17}" y="${top}" width="8" height="${h}" rx="4" fill="rgba(255,255,255,.18)"/>`;
+    s += `<line x1="${x}" y1="${top}" x2="${x}" y2="${top-8}" stroke="#222" stroke-width="2"/>`;
+    if (i < lit){
+      s += `<g class="flame" style="animation-delay:${i*.4}s"><ellipse cx="${x}" cy="${top-20}" rx="9" ry="17" fill="#f7a531"/>`+
+           `<ellipse cx="${x}" cy="${top-15}" rx="4" ry="9" fill="#fff3b0"/></g>`;
+      s += `<circle cx="${x}" cy="${top-18}" r="30" fill="rgba(247,190,80,.18)"/>`;
+    }
+  });
+  document.getElementById("wreath").innerHTML = s;
+  document.getElementById("atitle").textContent =
+    lit === 0 ? "Bald ist Advent 🕯️" : `${lit}. Advent`;
+  const day = Math.floor(n / 86400000);
+  document.getElementById("tip").textContent = TIPS[day % TIPS.length];
+}
+
+tick(); setInterval(tick, 10000);
+weather(); setInterval(weather, 30*60*1000);
+message(); setInterval(message, 5*60*1000);
+wreath(); setInterval(wreath, 30*60*1000);
+</script>
+</body>
+</html>
